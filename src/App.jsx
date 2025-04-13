@@ -1,35 +1,95 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useState, useEffect } from "react";
+import { fetchImages } from "../src/unsplash-api";
+import Loader from "./components/Loader/Loader";
+import ErrorMessage from "./components/ErrorMessage/ErrorMessage";
+import ImageGallery from "./components/ImageGallery/ImageGallery";
+import SearchBar from "./components/SearchBar/SearchBar";
+import { Toaster } from 'react-hot-toast';
+import style from "./App.module.css";
+import ImageModal from "./components/ImageModal/ImageModal";
+import LoadMoreBtn from "./components/LoadMoreBtn/LoadMoreBtn";
 
-function App() {
-  const [count, setCount] = useState(0)
+const App = () => {
 
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [query, setQuery] = useState("nature"); // початковий запит
+  const [page, setPage] = useState(1);
+  const [modalImage, setModalImage] = useState(null);
+
+const handleSearch = (newQuery) => {
+  setQuery(newQuery);   // Це тригерить useEffect
+  setPage(1);        // Скидаємо сторінку на першу при новому пошуку
+   setImages([]); // очищаємо попередні результати
+};
+  
+    const handleLoadMore = () => {
+    setPage((prev) => prev + 1);
+    };
+  
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(false);
+        // await new Promise(resolve => setTimeout(resolve, 1500)); // 1.5 секунди
+        const { images: newImages } = await fetchImages(query, page);
+        
+          setImages((prev) => {
+      const ids = new Set(prev.map((img) => img.id));
+      const filtered = newImages.filter((img) => !ids.has(img.id));
+      return [...prev, ...filtered];
+    });
+      } catch (err) {
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [query, page]);
+ 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className={style.container}>
+      <h1 className={style.headerGallery}>Image Gallery</h1>
+       <SearchBar onSubmit={handleSearch} />
 
-export default App
+      {error && <ErrorMessage />}
+
+      <ImageGallery
+        images={images}
+        onImageClick={setModalImage}
+        
+      />
+      {loading && <Loader />}
+
+   
+{!loading && images.length > 0 && (
+  <LoadMoreBtn onClick={handleLoadMore} />
+)}
+<ImageModal
+  isOpen={modalImage !== null}
+  onClose={() => setModalImage(null)}
+  image={modalImage}
+/>
+      
+      <Toaster
+        position="top-right"
+       toastOptions={{
+    style: {
+      background: '#ffdddd',
+      color: '#d8000c',
+      border: '1px solid #d8000c',
+      padding: '12px 16px',
+    },
+  }}/>
+    </div>
+  );
+};
+
+export default App;
+
+
+
